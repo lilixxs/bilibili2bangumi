@@ -660,31 +660,38 @@ BS.UI = (function () {
       return;
     }
 
-    var existing = BS.Config.getUpConfig(info.upName) || (info.uid && BS.Config.getUpConfig(info.uid));
-    if (existing) {
-      showToast('UP 已在白名单中: ' + existing.upName, 'info');
-      return;
-    }
-
-    BS.Config.addUp({
+    var added = BS.Config.addUp({
       upName: info.upName,
       uid: info.uid || null,
       matchMode: info.uid ? 'both' : 'name',
       enabled: true
     });
 
+    if (!added) {
+      showToast('UP 已在白名单中: ' + info.upName, 'info');
+      return;
+    }
+
     showToast('已添加 UP: ' + info.upName, 'success');
   }
 
   function tmplSettingsPanel(upList, configs) {
     var upHtml = upList.map(function(up, idx) {
+      var isEnabled = up.enabled !== false;
+      var toggleLabel = isEnabled ? '启用' : '已禁用';
+      var toggleStyle = isEnabled
+        ? 'padding:4px 10px;border:1px solid #52c41a;border-radius:4px;color:#52c41a;background:#fff;cursor:pointer;font-size:12px'
+        : 'padding:4px 10px;border:1px solid #999;border-radius:4px;color:#999;background:#f5f5f5;cursor:pointer;font-size:12px';
       return [
         '<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid #eee">',
-        '<div>',
+        '<div' + (isEnabled ? '' : ' style="opacity:0.5"') + '>',
         '<div style="font-weight:500">' + escHTML(up.upName || '未命名') + '</div>',
         up.uid ? '<div style="font-size:12px;color:#999">UID: ' + escHTML(String(up.uid)) + '</div>' : '',
         '</div>',
+        '<div style="display:flex;gap:6px">',
+        '<button class="bgm-toggle-up" data-index="' + idx + '" style="' + toggleStyle + '">' + toggleLabel + '</button>',
         '<button class="bgm-remove-up" data-index="' + idx + '" style="padding:4px 10px;border:1px solid #ff4d4f;border-radius:4px;color:#ff4d4f;background:#fff;cursor:pointer;font-size:12px">删除</button>',
+        '</div>',
         '</div>'
       ].join('');
     }).join('');
@@ -796,12 +803,17 @@ BS.UI = (function () {
       if (!name) return;
       var uid = prompt('请输入 UID (可选):');
 
-      BS.Config.addUp({
+      var added = BS.Config.addUp({
         upName: name.trim(),
         uid: uid ? uid.trim() : null,
         matchMode: uid ? 'both' : 'name',
         enabled: true
       });
+
+      if (!added) {
+        showToast('UP 已在白名单中: ' + name, 'info');
+        return;
+      }
 
       closeOverlay();
       showSettingsPanel();
@@ -819,6 +831,17 @@ BS.UI = (function () {
           showSettingsPanel();
           showToast('已删除', 'success');
         }
+      });
+    }
+
+    var toggleBtns = panel.querySelectorAll('.bgm-toggle-up');
+    for (var k = 0; k < toggleBtns.length; k++) {
+      toggleBtns[k].addEventListener('click', function() {
+        var idx = parseInt(this.getAttribute('data-index'), 10);
+        var upList = BS.Config.getUpWhitelist();
+        BS.Config.toggleUpEnabled(upList[idx].upName);
+        closeOverlay();
+        showSettingsPanel();
       });
     }
   }

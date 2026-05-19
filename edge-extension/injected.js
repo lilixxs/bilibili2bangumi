@@ -170,8 +170,13 @@
 
     function addUp(upConfig) {
       var list = getUpWhitelist();
+      for (var i = 0; i < list.length; i++) {
+        if (list[i].upName === upConfig.upName) return false;
+        if (upConfig.uid && list[i].uid && list[i].uid === upConfig.uid) return false;
+      }
       list.push(upConfig);
       setUpWhitelist(list);
+      return true;
     }
 
     function removeUp(identifier) {
@@ -187,11 +192,28 @@
       if (!identifier) return null;
       var list = getUpWhitelist();
       for (var i = 0; i < list.length; i++) {
-        if (list[i].upName === identifier || (list[i].uid && list[i].uid === identifier)) {
-          return list[i];
-        }
+        var up = list[i];
+        if (up.enabled === false) continue;
+        var mode = up.matchMode || 'both';
+        var nameMatch = up.upName === identifier;
+        var uidMatch = up.uid && up.uid === identifier;
+        if (mode === 'name' && nameMatch) return up;
+        if (mode === 'uid' && uidMatch) return up;
+        if (mode === 'both' && (nameMatch || uidMatch)) return up;
       }
       return null;
+    }
+
+    function toggleUpEnabled(identifier) {
+      if (!identifier) return;
+      var list = getUpWhitelist();
+      for (var i = 0; i < list.length; i++) {
+        if (list[i].upName === identifier || (list[i].uid && list[i].uid === identifier)) {
+          list[i].enabled = list[i].enabled === false ? true : false;
+          setUpWhitelist(list);
+          return;
+        }
+      }
     }
 
     function getHideOnWide() {
@@ -254,6 +276,7 @@
       addUp: addUp,
       removeUp: removeUp,
       getUpConfig: getUpConfig,
+      toggleUpEnabled: toggleUpEnabled,
       getHideOnWide: getHideOnWide,
       setHideOnWide: setHideOnWide,
       getAutoSyncMode: getAutoSyncMode,
@@ -1272,31 +1295,38 @@
         return;
       }
 
-      var existing = BS.Config.getUpConfig(info.upName) || (info.uid && BS.Config.getUpConfig(info.uid));
-      if (existing) {
-        showToast('UP 已在白名单中: ' + existing.upName, 'info');
-        return;
-      }
-
-      BS.Config.addUp({
+      var added = BS.Config.addUp({
         upName: info.upName,
         uid: info.uid || null,
         matchMode: info.uid ? 'both' : 'name',
         enabled: true
       });
 
+      if (!added) {
+        showToast('UP 已在白名单中: ' + info.upName, 'info');
+        return;
+      }
+
       showToast('已添加 UP: ' + info.upName, 'success');
     }
 
     function tmplSettingsPanel(upList, configs) {
       var upHtml = upList.map(function(up, idx) {
+        var isEnabled = up.enabled !== false;
+        var toggleLabel = isEnabled ? '启用' : '已禁用';
+        var toggleStyle = isEnabled
+          ? 'padding:4px 10px;border:1px solid #52c41a;border-radius:4px;color:#52c41a;background:#fff;cursor:pointer;font-size:12px'
+          : 'padding:4px 10px;border:1px solid #999;border-radius:4px;color:#999;background:#f5f5f5;cursor:pointer;font-size:12px';
         return [
           '<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid #eee">',
-          '<div>',
+          '<div' + (isEnabled ? '' : ' style="opacity:0.5"') + '>',
           '<div style="font-weight:500">' + escHTML(up.upName || '未命名') + '</div>',
           up.uid ? '<div style="font-size:12px;color:#999">UID: ' + escHTML(String(up.uid)) + '</div>' : '',
           '</div>',
+          '<div style="display:flex;gap:6px">',
+          '<button class="bgm-toggle-up" data-index="' + idx + '" style="' + toggleStyle + '">' + toggleLabel + '</button>',
           '<button class="bgm-remove-up" data-index="' + idx + '" style="padding:4px 10px;border:1px solid #ff4d4f;border-radius:4px;color:#ff4d4f;background:#fff;cursor:pointer;font-size:12px">删除</button>',
+          '</div>',
           '</div>'
         ].join('');
       }).join('');
@@ -1408,12 +1438,17 @@
         if (!name) return;
         var uid = prompt('请输入 UID (可选):');
 
-        BS.Config.addUp({
+        var added = BS.Config.addUp({
           upName: name.trim(),
           uid: uid ? uid.trim() : null,
           matchMode: uid ? 'both' : 'name',
           enabled: true
         });
+
+        if (!added) {
+          showToast('UP 已在白名单中: ' + name, 'info');
+          return;
+        }
 
         closeOverlay();
         showSettingsPanel();
@@ -1431,6 +1466,17 @@
             showSettingsPanel();
             showToast('已删除', 'success');
           }
+        });
+      }
+
+      var toggleBtns = panel.querySelectorAll('.bgm-toggle-up');
+      for (var k = 0; k < toggleBtns.length; k++) {
+        toggleBtns[k].addEventListener('click', function() {
+          var idx = parseInt(this.getAttribute('data-index'), 10);
+          var upList = BS.Config.getUpWhitelist();
+          BS.Config.toggleUpEnabled(upList[idx].upName);
+          closeOverlay();
+          showSettingsPanel();
         });
       }
     }
@@ -1462,42 +1508,88 @@
       return title;
     }
 
-    function extractUpName() {
+    function trimText(node) {
+      return (node && node.textContent ? node.textContent : '').trim();
+    }
+
+    function extractUidFromHref(href) {
+      var uidMatch = (href || '').match(/space\.bilibili\.com\/(\d+)/);
+      return uidMatch ? uidMatch[1] : '';
+    }
+
+    function getOwnerRoot() {
       var selectors = [
-        '.up-name__text',
-        '.username',
-        '.up-detail-top .name',
-        '.staff-name',
-        '[class*="up-name"]',
-        '[class*="upName"]',
-        '[class*="author"]',
-        'a[href*="space.bilibili.com"] span',
-        '.video-owner-name',
-        '.up-info .name'
+        '#v_upinfo',
+        '.up-info',
+        '.up-info-container',
+        '.up-panel-container',
+        '.video-owner',
+        '.owner',
+        '.up-detail',
+        '.up-detail-top'
       ];
       for (var i = 0; i < selectors.length; i++) {
         var node = document.querySelector(selectors[i]);
-        if (node && node.textContent) return node.textContent.trim();
+        if (node) return node;
       }
+      return null;
+    }
+
+    function findUpNameNode(scope) {
+      var selectors = [
+        '.up-name__text',
+        '.up-name',
+        '.username',
+        '.up-detail-top .name',
+        '.staff-name',
+        'a[href*="space.bilibili.com"] span',
+        '.video-owner-name',
+        '.up-info .name',
+        '[class*="up-name"]',
+        '[class*="upName"]',
+        '[class*="author"]'
+      ];
+      for (var i = 0; i < selectors.length; i++) {
+        var node = scope.querySelector(selectors[i]);
+        if (trimText(node)) return node;
+      }
+      return null;
+    }
+
+    function findOwnerLink(scope) {
+      return scope ? scope.querySelector('a[href*="space.bilibili.com"]') : null;
+    }
+
+    function extractUpName() {
+      var ownerRoot = getOwnerRoot();
+      var node = ownerRoot ? findUpNameNode(ownerRoot) : null;
+      if (!node) node = findUpNameNode(document);
+      if (node) return trimText(node);
       return '';
     }
 
     function extractUid() {
-      var uid = '';
+      var ownerRoot = getOwnerRoot();
+      var ownerLink = findOwnerLink(ownerRoot);
+      var uid = ownerLink ? extractUidFromHref(ownerLink.getAttribute('href')) : '';
+      if (uid) return uid;
+
+      var ownerMidNode = ownerRoot && ownerRoot.querySelector('[data-mid]');
+      if (ownerMidNode) {
+        uid = ownerMidNode.getAttribute('data-mid') || '';
+        if (uid) return uid;
+      }
+
+      var upName = extractUpName();
       var upLinks = document.querySelectorAll('a[href*="space.bilibili.com"]');
       for (var i = 0; i < upLinks.length; i++) {
-        var href = upLinks[i].getAttribute('href') || '';
-        var uidMatch = href.match(/space\.bilibili\.com\/(\d+)/);
-        if (uidMatch) {
-          uid = uidMatch[1];
-          break;
+        if (upName && trimText(upLinks[i]) === upName) {
+          uid = extractUidFromHref(upLinks[i].getAttribute('href'));
+          if (uid) return uid;
         }
       }
-      if (!uid) {
-        var midNode = document.querySelector('[data-mid]');
-        if (midNode) uid = midNode.getAttribute('data-mid') || '';
-      }
-      return uid;
+
+      return '';
     }
 
     function extractVideoInfo() {

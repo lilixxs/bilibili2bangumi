@@ -1,5 +1,10 @@
 // Popup 脚本
 document.addEventListener('DOMContentLoaded', function() {
+  var versionEl = document.getElementById('extension-version');
+  if (versionEl && chrome.runtime && chrome.runtime.getManifest) {
+    versionEl.textContent = chrome.runtime.getManifest().version;
+  }
+
   // 打开设置面板按钮
   document.getElementById('open-settings').addEventListener('click', function() {
     // 向当前标签页发送消息，打开设置面板

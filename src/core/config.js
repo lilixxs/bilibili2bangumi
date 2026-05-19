@@ -66,8 +66,13 @@ BS.Config = (function () {
 
   function addUp(upConfig) {
     var list = getUpWhitelist();
+    for (var i = 0; i < list.length; i++) {
+      if (list[i].upName === upConfig.upName) return false;
+      if (upConfig.uid && list[i].uid && list[i].uid === upConfig.uid) return false;
+    }
     list.push(upConfig);
     setUpWhitelist(list);
+    return true;
   }
 
   function removeUp(identifier) {
@@ -83,11 +88,28 @@ BS.Config = (function () {
     if (!identifier) return null;
     var list = getUpWhitelist();
     for (var i = 0; i < list.length; i++) {
-      if (list[i].upName === identifier || (list[i].uid && list[i].uid === identifier)) {
-        return list[i];
-      }
+      var up = list[i];
+      if (up.enabled === false) continue;
+      var mode = up.matchMode || 'both';
+      var nameMatch = up.upName === identifier;
+      var uidMatch = up.uid && up.uid === identifier;
+      if (mode === 'name' && nameMatch) return up;
+      if (mode === 'uid' && uidMatch) return up;
+      if (mode === 'both' && (nameMatch || uidMatch)) return up;
     }
     return null;
+  }
+
+  function toggleUpEnabled(identifier) {
+    if (!identifier) return;
+    var list = getUpWhitelist();
+    for (var i = 0; i < list.length; i++) {
+      if (list[i].upName === identifier || (list[i].uid && list[i].uid === identifier)) {
+        list[i].enabled = list[i].enabled === false ? true : false;
+        setUpWhitelist(list);
+        return;
+      }
+    }
   }
 
   function getHideOnWide() {
@@ -150,6 +172,7 @@ BS.Config = (function () {
     addUp: addUp,
     removeUp: removeUp,
     getUpConfig: getUpConfig,
+    toggleUpEnabled: toggleUpEnabled,
     getHideOnWide: getHideOnWide,
     setHideOnWide: setHideOnWide,
     getAutoSyncMode: getAutoSyncMode,

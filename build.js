@@ -1,7 +1,7 @@
 const fs = require('fs');
 const path = require('path');
 
-const VERSION = '0.7.0';
+const VERSION = require('./package.json').version;
 
 const CORE_FILES = [
   'src/platforms/PLATFORM-adapter.js',

@@ -1,11 +1,12 @@
 {
   "name": "bilibili2bangumi",
-  "version": "0.5.1",
+  "version": "0.7.0",
   "description": "在 B 站观看 UGC 番剧视频时，手动搜索并同步到 Bangumi 收藏进度",
   "scripts": {
     "build": "node build.js",
     "dev": "node build.js && echo 'Build complete. Reload extension to test.'",
-    "clean": "node -e \"require('fs').rmSync('dist', {recursive:true, force:true})\""
+    "clean": "node -e \"require('fs').rmSync('dist', {recursive:true, force:true})\"",
+    "check:versions": "node scripts/check-versions.js"
   },
   "keywords": [
     "bilibili",

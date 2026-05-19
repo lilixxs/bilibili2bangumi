@@ -16,42 +16,88 @@ BS.BiliWatcher = (function () {
     return title;
   }
 
-  function extractUpName() {
+  function trimText(node) {
+    return (node && node.textContent ? node.textContent : '').trim();
+  }
+
+  function extractUidFromHref(href) {
+    var uidMatch = (href || '').match(/space\.bilibili\.com\/(\d+)/);
+    return uidMatch ? uidMatch[1] : '';
+  }
+
+  function getOwnerRoot() {
     var selectors = [
-      '.up-name__text',
-      '.username',
-      '.up-detail-top .name',
-      '.staff-name',
-      '[class*="up-name"]',
-      '[class*="upName"]',
-      '[class*="author"]',
-      'a[href*="space.bilibili.com"] span',
-      '.video-owner-name',
-      '.up-info .name'
+      '#v_upinfo',
+      '.up-info',
+      '.up-info-container',
+      '.up-panel-container',
+      '.video-owner',
+      '.owner',
+      '.up-detail',
+      '.up-detail-top'
     ];
     for (var i = 0; i < selectors.length; i++) {
       var node = document.querySelector(selectors[i]);
-      if (node && node.textContent) return node.textContent.trim();
+      if (node) return node;
     }
+    return null;
+  }
+
+  function findUpNameNode(scope) {
+    var selectors = [
+      '.up-name__text',
+      '.up-name',
+      '.username',
+      '.up-detail-top .name',
+      '.staff-name',
+      'a[href*="space.bilibili.com"] span',
+      '.video-owner-name',
+      '.up-info .name',
+      '[class*="up-name"]',
+      '[class*="upName"]',
+      '[class*="author"]'
+    ];
+    for (var i = 0; i < selectors.length; i++) {
+      var node = scope.querySelector(selectors[i]);
+      if (trimText(node)) return node;
+    }
+    return null;
+  }
+
+  function findOwnerLink(scope) {
+    return scope ? scope.querySelector('a[href*="space.bilibili.com"]') : null;
+  }
+
+  function extractUpName() {
+    var ownerRoot = getOwnerRoot();
+    var node = ownerRoot ? findUpNameNode(ownerRoot) : null;
+    if (!node) node = findUpNameNode(document);
+    if (node) return trimText(node);
     return '';
   }
 
   function extractUid() {
-    var uid = '';
+    var ownerRoot = getOwnerRoot();
+    var ownerLink = findOwnerLink(ownerRoot);
+    var uid = ownerLink ? extractUidFromHref(ownerLink.getAttribute('href')) : '';
+    if (uid) return uid;
+
+    var ownerMidNode = ownerRoot && ownerRoot.querySelector('[data-mid]');
+    if (ownerMidNode) {
+      uid = ownerMidNode.getAttribute('data-mid') || '';
+      if (uid) return uid;
+    }
+
+    var upName = extractUpName();
     var upLinks = document.querySelectorAll('a[href*="space.bilibili.com"]');
     for (var i = 0; i < upLinks.length; i++) {
-      var href = upLinks[i].getAttribute('href') || '';
-      var uidMatch = href.match(/space\.bilibili\.com\/(\d+)/);
-      if (uidMatch) {
-        uid = uidMatch[1];
-        break;
+      if (upName && trimText(upLinks[i]) === upName) {
+        uid = extractUidFromHref(upLinks[i].getAttribute('href'));
+        if (uid) return uid;
       }
     }
-    if (!uid) {
-      var midNode = document.querySelector('[data-mid]');
-      if (midNode) uid = midNode.getAttribute('data-mid') || '';
-    }
-    return uid;
+
+    return '';
   }
 
   function extractVideoInfo() {
