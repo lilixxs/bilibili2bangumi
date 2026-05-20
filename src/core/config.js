@@ -8,7 +8,9 @@ BS.Config = (function () {
     ENABLE_DEDUP: 'bgm_enable_dedup',
     AUTO_SYNC_MODE: 'bgm_auto_sync_mode',
     AUTO_SYNC_SUBJECT_MAP: 'bgm_auto_sync_subject_map',
-    AUTO_SYNC_SIMILARITY_THRESHOLD: 'bgm_auto_sync_threshold'
+    AUTO_SYNC_SIMILARITY_THRESHOLD: 'bgm_auto_sync_threshold',
+    DEDUP_HOURS: 'bgm_dedup_hours',
+    SUBJECT_NAMES: 'bgm_subject_names'
   };
 
   function get(key, fallback) {
@@ -32,10 +34,19 @@ BS.Config = (function () {
     return get(KEYS.SYNC_HISTORY, {});
   }
 
-  function addSyncRecord(subjectId, ep) {
+  function addSyncRecord(subjectId, ep, subjectName) {
     var history = getSyncHistory();
     history[subjectId + '_' + ep] = Date.now();
     set(KEYS.SYNC_HISTORY, history);
+    if (subjectName) {
+      var names = getSubjectNames();
+      names[subjectId] = subjectName;
+      set(KEYS.SUBJECT_NAMES, names);
+    }
+  }
+
+  function getSubjectNames() {
+    return get(KEYS.SUBJECT_NAMES, {});
   }
 
   function isRecentlySynced(subjectId, ep) {
@@ -45,7 +56,8 @@ BS.Config = (function () {
     var key = subjectId + '_' + ep;
     var ts = history[key];
     if (!ts || typeof ts !== 'number') return false;
-    return (Date.now() - ts) < 24 * 60 * 60 * 1000;
+    var hours = getDedupHours();
+    return (Date.now() - ts) < hours * 60 * 60 * 1000;
   }
 
   function getEnableDedup() {
@@ -54,6 +66,18 @@ BS.Config = (function () {
 
   function setEnableDedup(value) {
     set(KEYS.ENABLE_DEDUP, value);
+  }
+
+  function getDedupHours() {
+    var val = get(KEYS.DEDUP_HOURS, 24);
+    if (typeof val !== 'number' || val < 1) return 24;
+    return val;
+  }
+
+  function setDedupHours(value) {
+    var num = parseInt(value, 10);
+    if (isNaN(num) || num < 1) num = 24;
+    set(KEYS.DEDUP_HOURS, num);
   }
 
   function getUpWhitelist() {
@@ -159,14 +183,52 @@ BS.Config = (function () {
     set(KEYS.AUTO_SYNC_SIMILARITY_THRESHOLD, num);
   }
 
+  function exportData() {
+    var data = {
+      version: '1.0',
+      exportTime: new Date().toISOString(),
+      whitelist: getUpWhitelist(),
+      configs: {
+        autoSyncMode: getAutoSyncMode(),
+        enableDedup: getEnableDedup(),
+        dedupHours: getDedupHours(),
+        hideOnWide: getHideOnWide(),
+        similarityThreshold: getSimilarityThreshold()
+      }
+    };
+    return JSON.stringify(data, null, 2);
+  }
+
+  function importData(jsonStr) {
+    try {
+      var data = JSON.parse(jsonStr);
+      if (data.whitelist && Array.isArray(data.whitelist)) {
+        setUpWhitelist(data.whitelist);
+      }
+      if (data.configs) {
+        if (data.configs.autoSyncMode) setAutoSyncMode(data.configs.autoSyncMode);
+        if (typeof data.configs.enableDedup === 'boolean') setEnableDedup(data.configs.enableDedup);
+        if (data.configs.dedupHours) setDedupHours(data.configs.dedupHours);
+        if (typeof data.configs.hideOnWide === 'boolean') setHideOnWide(data.configs.hideOnWide);
+        if (data.configs.similarityThreshold) setSimilarityThreshold(data.configs.similarityThreshold);
+      }
+      return { success: true };
+    } catch (e) {
+      return { success: false, error: e.message };
+    }
+  }
+
   return {
     getAccessToken: getAccessToken,
     setAccessToken: setAccessToken,
     getSyncHistory: getSyncHistory,
     addSyncRecord: addSyncRecord,
     isRecentlySynced: isRecentlySynced,
+    getSubjectNames: getSubjectNames,
     getEnableDedup: getEnableDedup,
     setEnableDedup: setEnableDedup,
+    getDedupHours: getDedupHours,
+    setDedupHours: setDedupHours,
     getUpWhitelist: getUpWhitelist,
     setUpWhitelist: setUpWhitelist,
     addUp: addUp,
@@ -182,6 +244,8 @@ BS.Config = (function () {
     getConfirmedSubjectId: getConfirmedSubjectId,
     confirmSubject: confirmSubject,
     getSimilarityThreshold: getSimilarityThreshold,
-    setSimilarityThreshold: setSimilarityThreshold
+    setSimilarityThreshold: setSimilarityThreshold,
+    exportData: exportData,
+    importData: importData
   };
 })();

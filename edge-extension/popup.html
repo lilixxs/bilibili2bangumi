@@ -11,7 +11,7 @@
       box-sizing: border-box;
     }
     body {
-      width: 320px;
+      width: 340px;
       padding: 16px;
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
       font-size: 14px;
@@ -58,22 +58,72 @@
       color: #666;
       margin-bottom: 8px;
     }
-    .info-item {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      padding: 8px 0;
-      border-bottom: 1px solid #f5f5f5;
+    .form-group {
+      margin-bottom: 12px;
     }
-    .info-item:last-child {
-      border-bottom: none;
-    }
-    .info-label {
+    .form-group label {
+      display: block;
+      font-size: 13px;
       color: #666;
+      margin-bottom: 4px;
     }
-    .info-value {
-      color: #333;
-      font-weight: 500;
+    .form-group input[type="text"],
+    .form-group input[type="number"],
+    .form-group select {
+      width: 100%;
+      padding: 8px 12px;
+      border: 1px solid #ddd;
+      border-radius: 6px;
+      font-size: 14px;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+    .form-group input:focus,
+    .form-group select:focus {
+      border-color: #fb7299;
+    }
+    .form-group input[type="password"] {
+      width: 100%;
+      padding: 8px 12px;
+      border: 1px solid #ddd;
+      border-radius: 6px;
+      font-size: 14px;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+    .form-group input[type="password"]:focus {
+      border-color: #fb7299;
+    }
+    .checkbox-group {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      cursor: pointer;
+      font-size: 14px;
+    }
+    .checkbox-group input[type="checkbox"] {
+      width: 16px;
+      height: 16px;
+      cursor: pointer;
+    }
+    .inline-group {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-top: 6px;
+      margin-left: 24px;
+    }
+    .inline-group input[type="number"] {
+      width: 60px;
+      padding: 4px 8px;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      text-align: center;
+      font-size: 14px;
+    }
+    .inline-group span {
+      font-size: 13px;
+      color: #666;
     }
     .btn {
       width: 100%;
@@ -99,6 +149,14 @@
     .btn-secondary:hover {
       background: #eee;
     }
+    .btn-row {
+      display: flex;
+      gap: 8px;
+      margin-top: 8px;
+    }
+    .btn-row .btn {
+      flex: 1;
+    }
     .status {
       display: flex;
       align-items: center;
@@ -108,6 +166,7 @@
       border-radius: 6px;
       font-size: 13px;
       color: #1890ff;
+      margin-bottom: 16px;
     }
     .status::before {
       content: '';
@@ -128,6 +187,24 @@
       color: #fb7299;
       text-decoration: none;
     }
+    .toast {
+      position: fixed;
+      top: 10px;
+      left: 50%;
+      transform: translateX(-50%);
+      padding: 8px 16px;
+      background: #52c41a;
+      color: white;
+      border-radius: 6px;
+      font-size: 13px;
+      opacity: 0;
+      transition: opacity 0.3s;
+      pointer-events: none;
+      z-index: 999;
+    }
+    .toast.show {
+      opacity: 1;
+    }
   </style>
 </head>
 <body>
@@ -144,25 +221,54 @@
   </div>
 
   <div class="section">
-    <div class="section-title">使用说明</div>
-    <div class="info-item">
-      <span class="info-label">1. 访问B站视频页面</span>
-    </div>
-    <div class="info-item">
-      <span class="info-label">2. 鼠标悬停右侧悬浮球</span>
-    </div>
-    <div class="info-item">
-      <span class="info-label">3. 点击进行同步操作</span>
+    <div class="section-title">Bangumi 配置</div>
+    <div class="form-group">
+      <label for="access-token">Access Token</label>
+      <input type="password" id="access-token" placeholder="输入 Bangumi Access Token">
     </div>
   </div>
 
-  <button class="btn btn-primary" id="open-settings">打开设置面板</button>
-  <button class="btn btn-secondary" id="open-github">访问 GitHub 仓库</button>
+  <div class="section">
+    <div class="section-title">同步设置</div>
+    <div class="form-group">
+      <label for="auto-sync-mode">自动同步模式</label>
+      <select id="auto-sync-mode">
+        <option value="off">关闭</option>
+        <option value="assist">辅助模式</option>
+        <option value="auto">全自动模式</option>
+      </select>
+    </div>
+    <div class="form-group">
+      <label class="checkbox-group">
+        <input type="checkbox" id="enable-dedup">
+        <span>防重复同步</span>
+      </label>
+      <div class="inline-group">
+        <span>同一集在</span>
+        <input type="number" id="dedup-hours" min="1" max="720" value="24">
+        <span>小时内不重复</span>
+      </div>
+    </div>
+    <div class="form-group">
+      <label class="checkbox-group">
+        <input type="checkbox" id="hide-on-wide">
+        <span>宽屏/全屏自动隐藏悬浮球</span>
+      </label>
+    </div>
+  </div>
+
+  <button class="btn btn-primary" id="save-settings">保存设置</button>
+
+  <div class="btn-row">
+    <button class="btn btn-secondary" id="open-settings">页面内设置</button>
+    <button class="btn btn-secondary" id="open-github">GitHub</button>
+  </div>
 
   <div class="footer">
-    <a href="https://github.com/Noneqin57/bilibili2bangumi" target="_blank">GitHub</a> ·
     <a href="https://next.bgm.tv/demo/access-token" target="_blank">获取 Token</a>
   </div>
+
+  <div class="toast" id="toast"></div>
 
   <script src="popup.js"></script>
 </body>

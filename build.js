@@ -29,6 +29,7 @@ const USERSCRIPT_HEADER = `// ==UserScript==
 // @grant        GM_getValue
 // @grant        GM_xmlhttpRequest
 // @grant        GM_addStyle
+// @grant        GM_registerMenuCommand
 // @connect      api.bgm.tv
 // @run-at       document-idle
 // @updateURL    https://raw.githubusercontent.com/Noneqin57/bilibili2bangumi/main/bilibili2bangumi.user.js
@@ -102,6 +103,13 @@ function buildUserscript() {
   output += '    BS.BangumiWatcher.init();\n';
   output += '  } else {\n';
   output += '    BS.BiliWatcher.init();\n';
+  output += '  }\n\n';
+  output += '  // ===== 油猴菜单命令 =====\n';
+  output += '  if (typeof GM_registerMenuCommand === "function") {\n';
+  output += '    GM_registerMenuCommand("⚙️ 打开设置", function() { BS.UI.showSettingsPanel(); });\n';
+  output += '    GM_registerMenuCommand("🔍 搜索并同步", function() { BS.UI.closeOverlay(); BS.AutoSync.searchAndSync(); });\n';
+  output += '    GM_registerMenuCommand("⭐ 番剧评分", function() { BS.UI.closeOverlay(); BS.UI.rateSubject && BS.UI.rateSubject(); });\n';
+  output += '    GM_registerMenuCommand("➕ 添加当前 UP", function() { BS.UI.closeOverlay(); BS.UI.addCurrentUp(); });\n';
   output += '  }\n\n';
   output += '})();\n';
 

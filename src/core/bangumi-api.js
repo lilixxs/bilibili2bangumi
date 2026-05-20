@@ -152,11 +152,26 @@ BS.BangumiAPI = (function () {
     return request('GET', '/v0/episodes' + query, null, false);
   }
 
+  function getSubjectDetail(subjectId) {
+    return request('GET', '/v0/subjects/' + subjectId, null, false);
+  }
+
+  function getUserCollection(subjectId) {
+    return request('GET', '/v0/users/-/collections/' + subjectId, null, true, 0, false);
+  }
+
+  function updateCollection(subjectId, payload) {
+    return request('POST', '/v0/users/-/collections/' + subjectId, payload || {}, true, 0, false);
+  }
+
   return {
     verifyToken: verifyToken,
     searchSubjects: searchSubjects,
     createOrUpdateCollection: createOrUpdateCollection,
     markSubjectEpisodesWatched: markSubjectEpisodesWatched,
-    getEpisodes: getEpisodes
+    getEpisodes: getEpisodes,
+    getSubjectDetail: getSubjectDetail,
+    getUserCollection: getUserCollection,
+    updateCollection: updateCollection
   };
 })();

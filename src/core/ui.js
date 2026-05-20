@@ -42,7 +42,14 @@ BS.UI = (function () {
     '#bgm-sync-toast{position:fixed;top:80px;right:20px;z-index:2147483647;padding:12px 16px;border-radius:8px;color:#fff;font-size:14px;box-shadow:0 6px 20px rgba(0,0,0,0.2)}',
     '#bgm-sync-toast.info{background:#1890ff}',
     '#bgm-sync-toast.success{background:#52c41a}',
-    '#bgm-sync-toast.error{background:#ff4d4f}'
+    '#bgm-sync-toast.error{background:#ff4d4f}',
+
+    '.bgm-data-section{padding:12px;background:#f9f9f9;border-radius:8px;margin-bottom:12px}',
+    '.bgm-data-section-title{font-size:13px;color:#666;margin-bottom:8px;font-weight:500}',
+    '.bgm-data-section-btn{display:inline-block;padding:6px 12px;border:1px solid #ddd;border-radius:4px;background:#fff;cursor:pointer;font-size:13px;margin-right:8px;transition:all 0.2s}',
+    '.bgm-data-section-btn:hover{background:#fb7299;color:#fff;border-color:#fb7299}',
+    '.bgm-data-section-btn.danger{color:#ff4d4f;border-color:#ff4d4f}',
+    '.bgm-data-section-btn.danger:hover{background:#ff4d4f;color:#fff}'
   ].join('');
 
   BS.Platform.addStyles(STYLES);
@@ -317,6 +324,7 @@ BS.UI = (function () {
       { icon: '🔍', text: '搜索并同步', action: searchAndSync },
       { icon: '✏️', text: '手动搜索', action: manualSearch },
       { icon: '➕', text: '添加当前 UP', action: addCurrentUp },
+      { icon: '⭐', text: '番剧评分', action: rateSubject },
       { icon: '⚙️', text: '设置', action: showSettingsPanel }
     ];
 
@@ -579,7 +587,7 @@ BS.UI = (function () {
         }
       }
 
-      BS.Orchestrator.sync(subject.id, ep, { fillPrevious: fillPrevious });
+      BS.Orchestrator.sync(subject.id, ep, { fillPrevious: fillPrevious, subjectName: subject.name_cn || subject.name || null });
     });
 
     document.getElementById('bgm-ep-input').addEventListener('keypress', function(e) {
@@ -650,6 +658,229 @@ BS.UI = (function () {
       if (e.key === 'Enter') {
         document.getElementById('bgm-search').click();
       }
+    });
+  }
+
+  var COLLECTION_TYPES = [
+    { value: 1, label: '想看' },
+    { value: 2, label: '看过' },
+    { value: 3, label: '在看' },
+    { value: 4, label: '搁置' },
+    { value: 5, label: '抛弃' }
+  ];
+
+  function tmplRatePanel(subject, userCollection, overallRating) {
+    var subjectName = subject.name_cn || subject.name || '未知番剧';
+    var origName = subject.name || '';
+    var score = overallRating ? overallRating.score : null;
+    var ratingCount = overallRating ? overallRating.total : 0;
+    var userRate = userCollection ? userCollection.rate : 0;
+    var userType = userCollection ? userCollection.type : 0;
+
+    var starsHtml = '';
+    for (var s = 1; s <= 10; s++) {
+      var filled = s <= userRate;
+      starsHtml += '<span class="bgm-star" data-score="' + s + '" style="cursor:pointer;font-size:24px;color:' + (filled ? '#fadb14' : '#d9d9d9') + ';transition:color 0.15s">' + (filled ? '★' : '☆') + '</span>';
+    }
+
+    var typeOptions = COLLECTION_TYPES.map(function(t) {
+      return '<option value="' + t.value + '"' + (t.value === userType ? ' selected' : '') + '>' + t.label + '</option>';
+    }).join('');
+
+    return [
+      '<div style="padding:14px 16px;background:#fb7299;color:#fff;font-weight:600;display:flex;justify-content:space-between;align-items:center">',
+      '<span>番剧评分</span>',
+      '<span id="bgm-close" style="cursor:pointer;font-size:20px">×</span>',
+      '</div>',
+      '<div style="padding:20px">',
+      '<div style="margin-bottom:16px">',
+      '<div style="font-weight:600;font-size:16px">' + escHTML(subjectName) + '</div>',
+      origName && origName !== subjectName ? '<div style="font-size:12px;color:#999;margin-top:2px">' + escHTML(origName) + '</div>' : '',
+      '<a href="https://bgm.tv/subject/' + subject.id + '" target="_blank" style="font-size:12px;color:#fb7299;margin-top:4px;display:inline-block">在 Bangumi 中查看 →</a>',
+      '</div>',
+      '<div style="margin-bottom:16px;padding:10px 12px;background:#f9f9f9;border-radius:8px">',
+      '<div style="font-size:13px;color:#666;margin-bottom:4px">Bangumi 评分</div>',
+      score ? '<div style="font-size:24px;font-weight:700;color:#fb7299">' + score.toFixed(1) + '<span style="font-size:13px;color:#999;font-weight:400"> / 10</span></div>' +
+              '<div style="font-size:12px;color:#999">' + ratingCount + ' 人评分</div>'
+            : '<div style="font-size:14px;color:#999">暂无评分</div>',
+      '</div>',
+      '<div style="margin-bottom:16px">',
+      '<div style="font-size:13px;color:#666;margin-bottom:8px">我的评分</div>',
+      '<div id="bgm-stars" style="display:flex;gap:2px;margin-bottom:4px">' + starsHtml + '</div>',
+      '<div id="bgm-rate-display" style="font-size:13px;color:#999">' + (userRate > 0 ? userRate + ' / 10' : '未评分') + '</div>',
+      '</div>',
+      '<div style="margin-bottom:20px">',
+      '<div style="font-size:13px;color:#666;margin-bottom:8px">收藏状态</div>',
+      '<select id="bgm-collection-type" style="width:100%;padding:8px 12px;border:1px solid #ddd;border-radius:6px;font-size:14px;cursor:pointer">' + typeOptions + '</select>',
+      '</div>',
+      '<div style="display:flex;justify-content:flex-end;gap:10px">',
+      '<button id="bgm-cancel" style="padding:8px 16px;border:1px solid #ddd;border-radius:6px;background:#fff;cursor:pointer">取消</button>',
+      '<button id="bgm-submit-rate" style="padding:8px 16px;border:0;border-radius:6px;background:#fb7299;color:#fff;cursor:pointer">提交评分</button>',
+      '</div>',
+      '</div>'
+    ].join('');
+  }
+
+  function rateSubject() {
+    var token = BS.Config.getAccessToken();
+    if (!token) {
+      showToast('未配置 Bangumi Token', 'error');
+      return;
+    }
+
+    var isBangumi = typeof BS.BangumiWatcher !== 'undefined' && BS.BangumiWatcher.isBangumiPage();
+
+    if (isBangumi) {
+      var bgmInfo = BS.BangumiWatcher.extractBangumiInfo();
+      if (!bgmInfo.title) {
+        showToast('无法获取番剧信息', 'error');
+        return;
+      }
+      showToast('正在搜索: ' + bgmInfo.title, 'info');
+      BS.BangumiAPI.searchSubjects(bgmInfo.title, { limit: 5 })
+        .then(function(res) {
+          var candidates = res && res.data ? res.data : [];
+          if (!candidates.length) {
+            showToast('未找到匹配条目', 'error');
+            return;
+          }
+          openRatePanel(candidates[0]);
+        })
+        .catch(function(err) {
+          showToast('搜索失败: ' + err.message, 'error');
+        });
+      return;
+    }
+
+    var info = BS.BiliWatcher.extractVideoInfo();
+    if (!info.upName) {
+      showToast('无法识别当前视频的 UP', 'error');
+      return;
+    }
+
+    var upConfig = BS.Config.getUpConfig(info.upName) || (info.uid && BS.Config.getUpConfig(info.uid));
+    if (!upConfig) {
+      showToast('当前 UP 不在白名单中', 'error');
+      return;
+    }
+
+    var cleanTitle = BS.Matcher.extractAnimeTitle(info.title);
+    var confirmedId = BS.Config.getConfirmedSubjectId(info.upName, cleanTitle);
+
+    if (confirmedId) {
+      BS.BangumiAPI.getSubjectDetail(confirmedId)
+        .then(function(subject) {
+          if (subject) {
+            openRatePanel(subject);
+          } else {
+            showToast('无法获取番剧信息', 'error');
+          }
+        })
+        .catch(function() {
+          showToast('无法获取番剧信息', 'error');
+        });
+      return;
+    }
+
+    showToast('正在搜索: ' + cleanTitle, 'info');
+    BS.BangumiAPI.searchSubjects(cleanTitle, { limit: 5 })
+      .then(function(res) {
+        var candidates = res && res.data ? res.data : [];
+        if (!candidates.length) {
+          showToast('未找到匹配条目', 'error');
+          return;
+        }
+        openRatePanel(candidates[0]);
+      })
+      .catch(function(err) {
+        showToast('搜索失败: ' + err.message, 'error');
+      });
+  }
+
+  function openRatePanel(subject) {
+    closeOverlay();
+
+    var subjectId = subject.id;
+    var overallRating = subject.rating || null;
+
+    showToast('正在获取评分信息...', 'info');
+
+    BS.BangumiAPI.getUserCollection(subjectId)
+      .then(function(userCol) {
+        showRatePanelUI(subject, userCol, overallRating);
+      })
+      .catch(function() {
+        showRatePanelUI(subject, null, overallRating);
+      });
+  }
+
+  function showRatePanelUI(subject, userCollection, overallRating) {
+    closeOverlay();
+
+    var panel = document.createElement('div');
+    panel.id = 'bgm-sync-panel';
+    panel.style.width = '400px';
+    panel.innerHTML = tmplRatePanel(subject, userCollection, overallRating);
+
+    document.body.appendChild(panel);
+
+    var currentRate = userCollection ? userCollection.rate : 0;
+
+    var stars = panel.querySelectorAll('.bgm-star');
+    for (var i = 0; i < stars.length; i++) {
+      (function(star) {
+        star.addEventListener('mouseenter', function() {
+          var score = parseInt(this.getAttribute('data-score'), 10);
+          for (var j = 0; j < stars.length; j++) {
+            var s = parseInt(stars[j].getAttribute('data-score'), 10);
+            stars[j].textContent = s <= score ? '★' : '☆';
+            stars[j].style.color = s <= score ? '#fadb14' : '#d9d9d9';
+          }
+        });
+        star.addEventListener('mouseleave', function() {
+          for (var j = 0; j < stars.length; j++) {
+            var s = parseInt(stars[j].getAttribute('data-score'), 10);
+            stars[j].textContent = s <= currentRate ? '★' : '☆';
+            stars[j].style.color = s <= currentRate ? '#fadb14' : '#d9d9d9';
+          }
+        });
+        star.addEventListener('click', function() {
+          var score = parseInt(this.getAttribute('data-score'), 10);
+          if (currentRate === score) {
+            currentRate = 0;
+          } else {
+            currentRate = score;
+          }
+          var display = document.getElementById('bgm-rate-display');
+          if (display) display.textContent = currentRate > 0 ? currentRate + ' / 10' : '未评分';
+          for (var j = 0; j < stars.length; j++) {
+            var s = parseInt(stars[j].getAttribute('data-score'), 10);
+            stars[j].textContent = s <= currentRate ? '★' : '☆';
+            stars[j].style.color = s <= currentRate ? '#fadb14' : '#d9d9d9';
+          }
+        });
+      })(stars[i]);
+    }
+
+    document.getElementById('bgm-close').addEventListener('click', closeOverlay);
+    document.getElementById('bgm-cancel').addEventListener('click', closeOverlay);
+
+    document.getElementById('bgm-submit-rate').addEventListener('click', function() {
+      var typeVal = parseInt(document.getElementById('bgm-collection-type').value, 10);
+      var payload = { type: typeVal };
+      if (currentRate > 0) payload.rate = currentRate;
+
+      showToast('正在提交评分...', 'info');
+
+      BS.BangumiAPI.updateCollection(subject.id, payload)
+        .then(function() {
+          closeOverlay();
+          var msg = currentRate > 0 ? '评分已提交: ' + currentRate + ' 分' : '收藏状态已更新';
+          showToast(msg, 'success');
+        })
+        .catch(function(err) {
+          showToast('提交失败: ' + err.message, 'error');
+        });
     });
   }
 
@@ -741,9 +972,22 @@ BS.UI = (function () {
       '<div style="margin-bottom:20px;padding:12px;background:#f9f9f9;border-radius:8px">',
       '<label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:14px">',
       '<input id="bgm-enable-dedup" type="checkbox" ' + (configs.enableDedup ? 'checked' : '') + ' style="width:16px;height:16px;cursor:pointer">',
-      '<span>24小时内防重复同步</span>',
+      '<span>防重复同步</span>',
       '</label>',
-      '<div style="font-size:12px;color:#999;margin-top:4px;margin-left:24px">开启后，同一集在24小时内不会重复同步</div>',
+      '<div style="display:flex;align-items:center;gap:8px;margin-top:8px;margin-left:24px">',
+      '<span style="font-size:13px;color:#666">同一集在</span>',
+      '<input id="bgm-dedup-hours" type="number" value="' + escHTML(String(configs.dedupHours)) + '" min="1" max="720" style="width:60px;padding:4px 8px;border:1px solid #ddd;border-radius:4px;text-align:center;font-size:14px">',
+      '<span style="font-size:13px;color:#666">小时内不会重复同步</span>',
+      '</div>',
+      '</div>',
+      '<div style="margin-bottom:20px;padding:12px;background:#f9f9f9;border-radius:8px">',
+      '<div style="font-size:13px;color:#666;margin-bottom:8px;font-weight:500">数据管理</div>',
+      '<div style="display:flex;flex-wrap:wrap;gap:8px">',
+      '<button id="bgm-export-btn" class="bgm-data-section-btn">📤 导出数据</button>',
+      '<button id="bgm-import-btn" class="bgm-data-section-btn">📥 导入数据</button>',
+      '<button id="bgm-history-btn" class="bgm-data-section-btn">📋 同步历史</button>',
+      '<button id="bgm-clear-all-btn" class="bgm-data-section-btn danger">🗑️ 清空数据</button>',
+      '</div>',
       '</div>',
       '<div style="display:flex;justify-content:flex-end;gap:10px">',
       '<button id="bgm-cancel" style="padding:8px 16px;border:1px solid #ddd;border-radius:6px;background:#fff;cursor:pointer">取消</button>',
@@ -766,6 +1010,7 @@ BS.UI = (function () {
       token: BS.Config.getAccessToken(),
       hideOnWide: BS.Config.getHideOnWide(),
       enableDedup: BS.Config.getEnableDedup(),
+      dedupHours: BS.Config.getDedupHours(),
       autoSyncMode: BS.Config.getAutoSyncMode()
     };
 
@@ -793,6 +1038,8 @@ BS.UI = (function () {
       BS.Config.setAccessToken(token);
       BS.Config.setHideOnWide(hideWide);
       BS.Config.setEnableDedup(enableDedup);
+      var dedupHours = parseInt(document.getElementById('bgm-dedup-hours').value, 10);
+      BS.Config.setDedupHours(dedupHours);
       BS.Config.setAutoSyncMode(selectedMode);
       closeOverlay();
       showToast('设置已保存', 'success');
@@ -844,6 +1091,156 @@ BS.UI = (function () {
         showSettingsPanel();
       });
     }
+
+    var exportBtn = document.getElementById('bgm-export-btn');
+    if (exportBtn) {
+      exportBtn.addEventListener('click', function() {
+        closeOverlay();
+        BS.UI.exportData();
+      });
+    }
+
+    var importBtn = document.getElementById('bgm-import-btn');
+    if (importBtn) {
+      importBtn.addEventListener('click', function() {
+        closeOverlay();
+        BS.UI.importData();
+      });
+    }
+
+    var historyBtn = document.getElementById('bgm-history-btn');
+    if (historyBtn) {
+      historyBtn.addEventListener('click', function() {
+        BS.UI.showSyncHistory();
+      });
+    }
+
+    var clearAllBtn = document.getElementById('bgm-clear-all-btn');
+    if (clearAllBtn) {
+      clearAllBtn.addEventListener('click', function() {
+        BS.UI.clearAllData();
+      });
+    }
+  }
+
+  function exportData() {
+    var jsonStr = BS.Config.exportData();
+    var blob = new Blob([jsonStr], { type: 'application/json' });
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement('a');
+    a.href = url;
+    a.download = 'bilibili2bangumi-backup-' + new Date().toISOString().slice(0, 10) + '.json';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    showToast('数据已导出', 'success');
+  }
+
+  function importData() {
+    var input = document.createElement('input');
+    input.type = 'file';
+    input.accept = '.json';
+    input.style.display = 'none';
+    document.body.appendChild(input);
+
+    input.addEventListener('change', function(e) {
+      var file = e.target.files[0];
+      if (!file) {
+        document.body.removeChild(input);
+        return;
+      }
+
+      var reader = new FileReader();
+      reader.onload = function(evt) {
+        document.body.removeChild(input);
+        var content = evt.target.result;
+        var result = BS.Config.importData(content);
+        if (result.success) {
+          showToast('数据导入成功', 'success');
+        } else {
+          showToast('导入失败: ' + result.error, 'error');
+        }
+      };
+      reader.onerror = function() {
+        document.body.removeChild(input);
+        showToast('读取文件失败', 'error');
+      };
+      reader.readAsText(file);
+    });
+
+    input.click();
+  }
+
+  function showSyncHistory() {
+    closeOverlay();
+
+    var history = BS.Config.getSyncHistory();
+    var subjectNames = BS.Config.getSubjectNames();
+    var entries = [];
+    for (var key in history) {
+      if (history.hasOwnProperty(key)) {
+        var parts = key.split('_');
+        var subjectId = parts.slice(0, -1).join('_');
+        var ep = parseInt(parts[parts.length - 1], 10);
+        var ts = history[key];
+        var name = subjectNames[subjectId] || null;
+        entries.push({ subjectId: subjectId, ep: ep, timestamp: ts, name: name });
+      }
+    }
+
+    entries.sort(function(a, b) { return b.timestamp - a.timestamp; });
+
+    var historyHtml = entries.length > 0
+      ? entries.slice(0, 100).map(function(entry) {
+          var date = new Date(entry.timestamp);
+          var dateStr = date.toLocaleString('zh-CN', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' });
+          var label = entry.name
+            ? escHTML(entry.name) + ' 第 ' + entry.ep + ' 话'
+            : '条目 ' + entry.subjectId + ' 第 ' + entry.ep + ' 话';
+          return '<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid #eee;font-size:13px">' +
+            '<span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;margin-right:12px">' + label + '</span>' +
+            '<span style="color:#999;flex-shrink:0">' + dateStr + '</span></div>';
+        }).join('')
+      : '<div style="padding:30px;text-align:center;color:#999">暂无同步记录</div>';
+
+    var panel = document.createElement('div');
+    panel.id = 'bgm-sync-panel';
+    panel.style.width = '450px';
+    panel.innerHTML = [
+      '<div style="padding:14px 16px;background:#fb7299;color:#fff;font-weight:600;display:flex;justify-content:space-between;align-items:center">',
+      '<span>同步历史</span>',
+      '<span id="bgm-close" style="cursor:pointer;font-size:20px">×</span>',
+      '</div>',
+      '<div style="max-height:60vh;overflow:auto;padding:12px">',
+      '<div style="font-size:12px;color:#999;margin-bottom:8px">最近 100 条记录</div>',
+      historyHtml,
+      '</div>',
+      '<div style="padding:12px;border-top:1px solid #eee;display:flex;justify-content:flex-end">',
+      '<button id="bgm-clear-history" class="bgm-data-section-btn danger">清空历史</button>',
+      '</div>'
+    ].join('');
+
+    document.body.appendChild(panel);
+
+    document.getElementById('bgm-close').addEventListener('click', closeOverlay);
+    document.getElementById('bgm-clear-history').addEventListener('click', function() {
+      if (confirm('确定清空所有同步历史记录吗？')) {
+        BS.Platform.setValue('bgm_sync_history', {});
+        showToast('历史已清空', 'success');
+        closeOverlay();
+      }
+    });
+  }
+
+  function clearAllData() {
+    if (confirm('确定要清空所有数据吗？包括：\n1. UP 白名单\n2. 同步历史\n3. 番剧匹配记录\n\n此操作不可恢复！')) {
+      BS.Config.setUpWhitelist([]);
+      BS.Platform.setValue('bgm_sync_history', {});
+      BS.Config.setAutoSyncSubjectMap({});
+      showToast('所有数据已清空', 'success');
+      closeOverlay();
+    }
   }
 
   return {
@@ -851,6 +1248,13 @@ BS.UI = (function () {
     createFloatingBall: createFloatingBall,
     closeOverlay: closeOverlay,
     updateFloatingBallState: updateFloatingBallState,
-    showSettingsPanel: showSettingsPanel
+    showSettingsPanel: showSettingsPanel,
+    searchAndSync: searchAndSync,
+    addCurrentUp: addCurrentUp,
+    rateSubject: rateSubject,
+    exportData: exportData,
+    importData: importData,
+    showSyncHistory: showSyncHistory,
+    clearAllData: clearAllData
   };
 })();

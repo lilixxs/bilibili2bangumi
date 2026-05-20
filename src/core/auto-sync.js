@@ -280,11 +280,14 @@ BS.AutoSync = (function () {
       var ep = BS.BangumiWatcher.extractEpisode() || 1;
       if (BS.Config.isRecentlySynced(best.subject.id, ep)) {
         if (typeof BS.UI !== 'undefined') {
-          BS.UI.showToast('24 小时内已同步过该集', 'info');
+          var hours = BS.Config.getDedupHours();
+          BS.UI.showToast(hours + ' 小时内已同步过该集', 'info');
+          BS.UI.updateFloatingBallState('idle');
         }
+        reset();
         return;
       }
-      BS.Orchestrator.sync(best.subject.id, ep);
+      BS.Orchestrator.sync(best.subject.id, ep, { subjectName: best.subject.name_cn || best.subject.name || null });
       return;
     }
 
@@ -302,12 +305,15 @@ BS.AutoSync = (function () {
 
     if (BS.Config.isRecentlySynced(best.subject.id, ep)) {
       if (typeof BS.UI !== 'undefined') {
-        BS.UI.showToast('24 小时内已同步过该集', 'info');
+        var hours = BS.Config.getDedupHours();
+        BS.UI.showToast(hours + ' 小时内已同步过该集', 'info');
+        BS.UI.updateFloatingBallState('idle');
       }
+      reset();
       return;
     }
 
-    BS.Orchestrator.sync(best.subject.id, ep);
+    BS.Orchestrator.sync(best.subject.id, ep, { subjectName: best.subject.name_cn || best.subject.name || null });
   }
 
   function handlePlayEvent() {

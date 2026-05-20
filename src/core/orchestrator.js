@@ -19,6 +19,7 @@ BS.Orchestrator = (function () {
     }
 
     var fillPrevious = options.fillPrevious === true;
+    var subjectName = options.subjectName || null;
 
     if (!fillPrevious && BS.Config.isRecentlySynced(subjectId, ep)) {
       BS.UI.showToast('24 小时内已同步过该集', 'info');
@@ -29,7 +30,6 @@ BS.Orchestrator = (function () {
 
     BS.BangumiAPI.createOrUpdateCollection(subjectId, { type: 3 })
       .then(function() {
-        // 补全模式下拉取足够多的剧集
         var epOptions = fillPrevious ? { limit: Math.max(200, ep + 50) } : undefined;
         return BS.BangumiAPI.getEpisodes(subjectId, epOptions);
       })
@@ -37,7 +37,6 @@ BS.Orchestrator = (function () {
         var episodes = epRes && epRes.data ? epRes.data : [];
 
         if (fillPrevious) {
-          // 补全模式：收集第 1 ~ ep 话的所有剧集 ID
           var allIds = [];
           for (var epNum = 1; epNum <= ep; epNum++) {
             var ids = findEpisodeIds(episodes, epNum);
@@ -54,7 +53,6 @@ BS.Orchestrator = (function () {
           });
         }
 
-        // 单集模式
         var targetEp = null;
         for (var i = 0; i < episodes.length; i++) {
           if (episodes[i].ep === ep || episodes[i].sort === ep) {
@@ -72,13 +70,12 @@ BS.Orchestrator = (function () {
       })
       .then(function(result) {
         if (result && result.filled) {
-          // 补全模式：记录所有集数
           for (var epNum = 1; epNum <= result.filled; epNum++) {
-            BS.Config.addSyncRecord(subjectId, epNum);
+            BS.Config.addSyncRecord(subjectId, epNum, subjectName);
           }
           BS.UI.showToast('补全同步成功！已标记第 1~' + result.filled + ' 话', 'success');
         } else {
-          BS.Config.addSyncRecord(subjectId, ep);
+          BS.Config.addSyncRecord(subjectId, ep, subjectName);
           BS.UI.showToast('同步成功！', 'success');
         }
       })
