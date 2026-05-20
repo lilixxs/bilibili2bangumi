@@ -12,10 +12,10 @@ document.addEventListener('DOMContentLoaded', function() {
       if (tabs[0] && tabs[0].url.includes('bilibili.com')) {
         chrome.scripting.executeScript({
           target: { tabId: tabs[0].id },
+          world: 'MAIN',
           func: function() {
-            // 触发设置面板打开
-            if (window.BangumiSync && window.BangumiSync.UI) {
-              window.BangumiSync.UI.showSettingsPanel();
+            if (window.BS && window.BS.UI) {
+              window.BS.UI.showSettingsPanel();
             } else {
               alert('请在B站视频页面使用此功能');
             }

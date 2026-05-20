@@ -1485,7 +1485,8 @@
       showToast: showToast,
       createFloatingBall: createFloatingBall,
       closeOverlay: closeOverlay,
-      updateFloatingBallState: updateFloatingBallState
+      updateFloatingBallState: updateFloatingBallState,
+      showSettingsPanel: showSettingsPanel
     };
   })();
 
